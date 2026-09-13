@@ -1,0 +1,13 @@
+data/raw_companies.csv
+data/raw_postings.csv
+data/output/
+__pycache__/
+*.pyc
+.pytest_cache/
+spark-warehouse/
+metastore_db/
+derby.log
+great_expectations/uncommitted/
+airflow.db
+airflow.cfg
+logs/
