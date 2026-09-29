@@ -21,10 +21,17 @@ repos), not a real company's data.
    expectation suites against the PySpark output: row counts, categorical value sets,
    non-null/uniqueness constraints, a cross-column comparison (max >= min). Exits non-zero
    on any failed expectation.
-3. **Airflow DAG** (`dags/job_market_pipeline.py`) -- `generate_raw_data >>
+3. **Data-quality dashboard** (`great_expectations/build_dashboard.py`) -- builds a real,
+   static HTML report (`data/output/dashboard.html`) from the same expectation results
+   plus the PySpark aggregate output: pass/fail counts, segment counts, and an average-
+   salary-by-industry bar chart rendered as plain inline SVG (no JS charting library).
+   Exits non-zero on the same conditions `validate_outputs.py` does, so a failing pipeline
+   run fails the dashboard step too rather than silently publishing a green-looking report.
+   CI uploads it as a downloadable artifact on every run.
+4. **Airflow DAG** (`dags/job_market_pipeline.py`) -- `generate_raw_data >>
    pyspark_transform >> great_expectations_validate`, each a `BashOperator` running the
    exact same scripts a human would run by hand.
-4. **Scala Spark job** (`spark_jobs/PostingTrends.scala`) -- a complementary monthly
+5. **Scala Spark job** (`spark_jobs/PostingTrends.scala`) -- a complementary monthly
    posting-volume-by-source aggregation, run via `spark-shell -i` rather than a full sbt
    project (no cluster or build tool needed, same Spark SQL DataFrame API in Scala).
 
@@ -36,6 +43,7 @@ pip install -r requirements.txt   # needs a JDK on PATH for Spark (Java 17 used 
 python data/generate_raw_data.py
 python spark_jobs/transform.py
 python great_expectations/validate_outputs.py
+python great_expectations/build_dashboard.py   # writes data/output/dashboard.html
 python -m pytest tests/ -v
 ```
 
