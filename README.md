@@ -1,45 +1,43 @@
 # Job Market Lakehouse
 
-A small local-mode data lakehouse pipeline over synthetic job-market data (60k postings,
-400 companies -- large enough that a real DataFrame-API pipeline is a reasonable choice,
-not theater): PySpark for transformation, Great Expectations for data-quality gating,
-Airflow for orchestration, and a Scala Spark job doing a complementary aggregation.
+[![ci](https://github.com/Deshraj-Jogiya/job-market-lakehouse/actions/workflows/ci.yml/badge.svg)](https://github.com/Deshraj-Jogiya/job-market-lakehouse/actions/workflows/ci.yml) ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 
-## Data
+A local-mode lakehouse pipeline over 60,000 synthetic job postings from 400 companies: PySpark transforms the raw data, Great Expectations
+gates the output, Airflow orchestrates the run, and a Scala Spark job adds a second aggregation.
 
-`data/generate_raw_data.py` writes `raw_companies.csv` and `raw_postings.csv` -- clearly
-synthetic (seeded, same disclosure as every other seed dataset in this author's other
-repos), not a real company's data.
+## Highlights
 
-## Pipeline
+- **PySpark transformation:** joins postings to companies, aggregates salary statistics per industry and seniority (`groupBy`/`agg`), and
+  ranks postings within each industry with a `dense_rank()` window function. Output is written as Parquet.
+- **Data-quality gate:** 11 Great Expectations checks (row counts, categorical value sets, uniqueness, a cross-column `max >= min` rule).
+  Any failed expectation fails the run.
+- **Orchestration:** an Airflow DAG (`generate >> transform >> validate`) verified end to end with `airflow dags test`. A
+  pydantic/typing_extensions conflict was fixed by giving Airflow its own environment, separate from the pipeline's.
+- **Scala Spark job:** monthly posting volume by source, run through `spark-shell`.
+- **Data-quality report:** a static HTML dashboard (pass/fail counts, segment counts, an average-salary chart in inline SVG) built from the
+  same expectation results and uploaded by CI as an artifact.
 
-1. **PySpark transform** (`spark_jobs/transform.py`) -- joins postings to companies,
-   aggregates salary stats per industry/seniority (`groupBy`/`agg`, real Spark SQL under
-   the DataFrame API), and ranks postings within each industry by salary using a
-   `dense_rank()` window function. Writes two Parquet outputs.
-2. **Great Expectations validation** (`great_expectations/validate_outputs.py`) -- real
-   expectation suites against the PySpark output: row counts, categorical value sets,
-   non-null/uniqueness constraints, a cross-column comparison (max >= min). Exits non-zero
-   on any failed expectation.
-3. **Data-quality dashboard** (`great_expectations/build_dashboard.py`) -- builds a real,
-   static HTML report (`data/output/dashboard.html`) from the same expectation results
-   plus the PySpark aggregate output: pass/fail counts, segment counts, and an average-
-   salary-by-industry bar chart rendered as plain inline SVG (no JS charting library).
-   Exits non-zero on the same conditions `validate_outputs.py` does, so a failing pipeline
-   run fails the dashboard step too rather than silently publishing a green-looking report.
-   CI uploads it as a downloadable artifact on every run.
-4. **Airflow DAG** (`dags/job_market_pipeline.py`) -- `generate_raw_data >>
-   pyspark_transform >> great_expectations_validate`, each a `BashOperator` running the
-   exact same scripts a human would run by hand.
-5. **Scala Spark job** (`spark_jobs/PostingTrends.scala`) -- a complementary monthly
-   posting-volume-by-source aggregation, run via `spark-shell -i` rather than a full sbt
-   project (no cluster or build tool needed, same Spark SQL DataFrame API in Scala).
+## Architecture
 
-## Running it
+```mermaid
+flowchart LR
+    G[generate_raw_data.py<br/>60k postings, 400 companies] --> R[(raw CSV)]
+    R --> T[PySpark transform<br/>join, groupBy/agg, dense_rank]
+    T --> P[(Parquet outputs)]
+    P --> V[Great Expectations<br/>11 checks]
+    V --> D[HTML data-quality report]
+    R --> S[Scala Spark job<br/>monthly volume by source]
+    A{{Airflow DAG}} -.orchestrates.-> G & T & V
+```
+
+## Stack
+
+PySpark, Spark SQL, Scala, Great Expectations, Apache Airflow, Parquet, pytest, GitHub Actions.
+
+## Run it
 
 ```bash
-pip install -r requirements.txt   # needs a JDK on PATH for Spark (Java 17 used in CI)
-
+pip install -r requirements.txt        # Spark needs a JDK on PATH (CI uses Java 17)
 python data/generate_raw_data.py
 python spark_jobs/transform.py
 python great_expectations/validate_outputs.py
@@ -53,7 +51,7 @@ Scala job (needs a Spark distribution with `spark-shell` on PATH):
 spark-shell -i spark_jobs/PostingTrends.scala
 ```
 
-Airflow DAG (real, run via the CLI test mode rather than a persistent scheduler):
+Airflow DAG, run in CLI test mode:
 
 ```bash
 pip install "apache-airflow==2.10.2" --constraint <official-constraints-url-for-your-python-version>
@@ -65,9 +63,9 @@ airflow dags test job_market_pipeline 2026-01-01
 
 ## CI
 
-`.github/workflows/ci.yml` runs the PySpark job, the Great Expectations validation, and
-the pytest suite on every push, plus a second job that installs Airflow and runs the real
-DAG end-to-end via `airflow dags test`. The Scala job is verified the same way Docker and
-Jenkins were verified elsewhere in this author's work -- run for real against a Spark
-distribution, not wired into this repo's CI (installing a full Spark distribution just to
-run one Scala script in CI adds a lot of weight for a single job that's already proven).
+`.github/workflows/ci.yml` runs the PySpark job, the Great Expectations validation and the tests on every push, and a second job installs
+Airflow and runs the DAG end to end. The Scala job is run by hand against a Spark distribution rather than in CI.
+
+## Data
+
+All data is synthetic and seeded (`data/generate_raw_data.py`); it describes no real company.
