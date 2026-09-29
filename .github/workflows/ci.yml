@@ -25,8 +25,15 @@ jobs:
         run: python spark_jobs/transform.py
       - name: Run the real Great Expectations validation on the PySpark output
         run: python great_expectations/validate_outputs.py
+      - name: Build the real HTML data-quality dashboard from the validation results
+        run: python great_expectations/build_dashboard.py
       - name: Run the PySpark unit tests
         run: python -m pytest tests/ -v
+      - name: Upload the dashboard as a real, downloadable CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-quality-dashboard
+          path: data/output/dashboard.html
 
   airflow-dag:
     runs-on: ubuntu-latest
