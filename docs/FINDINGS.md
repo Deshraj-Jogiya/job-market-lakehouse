@@ -39,6 +39,16 @@ them.
 so those industries return 6 rows each. `dense_rank()` gives tied values the same rank and skips no numbers, so "rank <= 5" means the
 five highest salary levels, not five postings.
 
+| Industry | Rows returned for ranks 1 to 5 |
+|---|---|
+| Software | 6 |
+| Retail | 6 |
+| Finance | 5 |
+| Healthcare | 5 |
+| Manufacturing | 5 |
+| Logistics | 5 |
+| Energy | 5 |
+
 **Decision.** Kept, because the question is "which postings pay the top five salaries"; a report that needs exactly five rows would use
 `row_number()` with a tie-breaker.
 
