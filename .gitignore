@@ -11,3 +11,5 @@ great_expectations/uncommitted/
 airflow.db
 airflow.cfg
 logs/
+data/hive/
+hadoop/conf/hdfs-site.xml
