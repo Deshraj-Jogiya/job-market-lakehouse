@@ -84,6 +84,11 @@ airflow db migrate
 airflow dags test job_market_pipeline 2026-01-01
 ```
 
+## Findings
+
+[docs/FINDINGS.md](docs/FINDINGS.md): partition pruning (the June query reads 1 of 20 partitions), the repair step, why "top 5"
+returns 6 rows in two industries, and the MapReduce-to-Spark match on all 60,000 rows.
+
 ## CI
 
 `.github/workflows/ci.yml` runs the PySpark job, the HiveQL job, the Great Expectations validation and the tests on every push; a second job
