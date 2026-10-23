@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<configuration>
+  <!-- Local job runner: the MapReduce job runs in one JVM but reads and writes real HDFS. -->
+  <property><name>mapreduce.framework.name</name><value>local</value></property>
+</configuration>

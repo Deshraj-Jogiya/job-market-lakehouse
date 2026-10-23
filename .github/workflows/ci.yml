@@ -23,6 +23,8 @@ jobs:
         run: python data/generate_raw_data.py
       - name: Run the real PySpark transform (joins, groupBy aggregation, window function)
         run: python spark_jobs/transform.py
+      - name: Run the HiveQL job (external + partitioned Parquet tables, dynamic partitions, MSCK REPAIR, pruning)
+        run: python spark_jobs/hive_tables.py
       - name: Run the real Great Expectations validation on the PySpark output
         run: python great_expectations/validate_outputs.py
       - name: Build the real HTML data-quality dashboard from the validation results
@@ -70,3 +72,38 @@ jobs:
               dags/job_market_pipeline.py > "$AIRFLOW_HOME/dags/job_market_pipeline.py"
           airflow db migrate
           airflow dags test job_market_pipeline 2026-01-01
+
+  hadoop-hdfs-mapreduce:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "11"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Generate the synthetic raw data
+        run: mkdir -p data/output && python data/generate_raw_data.py
+      - name: Cache the Hadoop release
+        id: hadoop-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/hadoop-3.4.1
+          key: hadoop-3.4.1-lean
+      - name: Download Hadoop 3.4.1
+        if: steps.hadoop-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL https://archive.apache.org/dist/hadoop/common/hadoop-3.4.1/hadoop-3.4.1-lean.tar.gz -o /tmp/hadoop.tgz
+          tar -xzf /tmp/hadoop.tgz -C ~
+      - name: Start single-node HDFS, run the Hadoop Streaming MapReduce job, cross-check against Spark
+        env:
+          HADOOP_HOME: /home/runner/hadoop-3.4.1
+        run: bash hadoop/run_hdfs_mapreduce.sh
+      - name: Upload the MapReduce output
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapreduce-monthly-by-source
+          path: data/output/mapreduce_monthly_by_source.tsv
